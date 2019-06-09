@@ -1,12 +1,63 @@
 version: '3.3'
 services:
-  anki-server
+  proxy:
+    image: traefik:v1.7
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - traefik-public
+      - default
+    command: --docker \
+      --docker.swarmmode \
+      --docker.watch \
+      --docker.exposedbydefault=false \
+      --constraints=tag==anki-server \
+      --logLevel=INFO \
+      --accessLog \
+      --web
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        # For the configured domain
+        - traefik.frontend.rule=Host:anki.yosoyubik.com
+        # For a domain with and without 'www'
+        # Comment the previous line above and un-comment the line below
+        # - "traefik.frontend.rule=Host:www.${DOMAIN},${DOMAIN}"
+        - traefik.enable=true
+        - traefik.port=80
+        - traefik.tags=traefik-public
+        - traefik.docker.network=traefik-public
+        # Traefik service that listens to HTTP
+        - traefik.servicehttp.frontend.entryPoints=http
+        - traefik.servicehttp.frontend.redirect.entryPoint=https
+        # Traefik service that listens to HTTPS
+        - traefik.servicehttps.frontend.entryPoints=https
+        # Uncomment the config line below to detect and redirect www to non-www (or the contrary)
+        # The lines above for traefik.frontend.rule are needed too
+        # - "traefik.servicehttps.frontend.redirect.regex=^https?://(www.)?(${DOMAIN})/(.*)"
+        # To redirect from non-www to www un-comment the line below
+        # - "traefik.servicehttps.frontend.redirect.replacement=https://www.${DOMAIN}/$$3"
+        # To redirect from www to non-www un-comment the line below
+        # - "traefik.servicehttps.frontend.redirect.replacement=https://${DOMAIN}/$$3"
+  anki-server:
     image: kuklinistvan/anki-sync-server:latest
     environment:
       - DOCKER_USER=root
       - ANKI_SYNC_DATA_DIR=anki-sync-server
       - HOST_PORT=27701
-    ports:
-      - "27701:27701"
+    #expose:
+    #  - "27701"
+    #ports:
+    #  - "27701:27701"
     volumes:
       - "./anki-sync-server:/app/data"
+    labels:
+      - traefik.frontend.rule=PathPrefix:/sync,/msync
+      - traefik.enable=true
+      - traefik.port=27701
+      - traefik.tags=anki-server
+networks:
+  traefik-public:
+    external: true
