@@ -1,0 +1,12 @@
+version: '3.3'
+services:
+  anki-server
+    image: kuklinistvan/anki-sync-server:latest
+    environment:
+      - DOCKER_USER=root
+      - ANKI_SYNC_DATA_DIR=anki-sync-server
+      - HOST_PORT=27701
+    ports:
+      - "27701:27701"
+    volumes:
+      - "./anki-sync-server:/app/data"
